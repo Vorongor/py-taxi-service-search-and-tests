@@ -1,12 +1,17 @@
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseRedirect
+from django.views import generic
 from django.shortcuts import render
 from django.urls import reverse_lazy
-from django.views import generic
-from django.contrib.auth.mixins import LoginRequiredMixin
-
+from django.http import HttpResponseRedirect
+from .views_mixins import SearchableListView
 from .models import Driver, Car, Manufacturer
-from .forms import DriverCreationForm, DriverLicenseUpdateForm, CarForm
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from .forms import (
+    DriverCreationForm,
+    DriverLicenseUpdateForm,
+    CarForm,
+    SearchTermForm
+)
 
 
 @login_required
@@ -30,11 +35,14 @@ def index(request):
     return render(request, "taxi/index.html", context=context)
 
 
-class ManufacturerListView(LoginRequiredMixin, generic.ListView):
+class ManufacturerListView(LoginRequiredMixin, SearchableListView):
     model = Manufacturer
     context_object_name = "manufacturer_list"
     template_name = "taxi/manufacturer_list.html"
     paginate_by = 5
+
+    search_form_class = SearchTermForm
+    search_fields = ["name"]
 
 
 class ManufacturerCreateView(LoginRequiredMixin, generic.CreateView):
@@ -54,10 +62,13 @@ class ManufacturerDeleteView(LoginRequiredMixin, generic.DeleteView):
     success_url = reverse_lazy("taxi:manufacturer-list")
 
 
-class CarListView(LoginRequiredMixin, generic.ListView):
+class CarListView(LoginRequiredMixin, SearchableListView):
     model = Car
     paginate_by = 5
     queryset = Car.objects.select_related("manufacturer")
+
+    search_form_class = SearchTermForm
+    search_fields = ["model"]
 
 
 class CarDetailView(LoginRequiredMixin, generic.DetailView):
@@ -81,9 +92,12 @@ class CarDeleteView(LoginRequiredMixin, generic.DeleteView):
     success_url = reverse_lazy("taxi:car-list")
 
 
-class DriverListView(LoginRequiredMixin, generic.ListView):
+class DriverListView(LoginRequiredMixin, SearchableListView):
     model = Driver
     paginate_by = 5
+
+    search_form_class = SearchTermForm
+    search_fields = ["username"]
 
 
 class DriverDetailView(LoginRequiredMixin, generic.DetailView):
@@ -111,8 +125,8 @@ class DriverDeleteView(LoginRequiredMixin, generic.DeleteView):
 def toggle_assign_to_car(request, pk):
     driver = Driver.objects.get(id=request.user.id)
     if (
-        Car.objects.get(id=pk) in driver.cars.all()
-    ):  # probably could check if car exists
+            Car.objects.get(id=pk) in driver.cars.all()
+    ):
         driver.cars.remove(pk)
     else:
         driver.cars.add(pk)
