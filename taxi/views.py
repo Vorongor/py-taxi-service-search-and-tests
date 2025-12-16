@@ -1,5 +1,5 @@
 from django.views import generic
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse_lazy
 from django.http import HttpResponseRedirect
 from .views_mixins import SearchableListView
@@ -123,11 +123,14 @@ class DriverDeleteView(LoginRequiredMixin, generic.DeleteView):
 
 @login_required
 def toggle_assign_to_car(request, pk):
-    driver = Driver.objects.get(id=request.user.id)
-    if (
-            Car.objects.get(id=pk) in driver.cars.all()
-    ):
-        driver.cars.remove(pk)
+    driver = request.user
+    car = get_object_or_404(Car, pk=pk)
+
+    if driver.cars.filter(pk=car.pk).exists():
+        driver.cars.remove(car)
     else:
-        driver.cars.add(pk)
-    return HttpResponseRedirect(reverse_lazy("taxi:car-detail", args=[pk]))
+        driver.cars.add(car)
+
+    return HttpResponseRedirect(
+        reverse_lazy("taxi:car-detail", args=[pk])
+    )
