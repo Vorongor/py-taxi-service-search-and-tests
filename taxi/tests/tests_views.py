@@ -71,6 +71,20 @@ class PrivateListViewsTest(TestCase):
         self.assertEqual(list(res.context["manufacturer_list"]),
                          list(manufacturers))
 
+    def test_search_in_car_list(self):
+        url = reverse("taxi:car-list")
+        res = self.client.get(url + "?search_term=A4")
+
+        cars = Car.objects.filter(model__icontains="A4")
+        self.assertEqual(list(res.context["car_list"]), list(cars))
+
+    def test_search_in_driver_list(self):
+        url = reverse("taxi:driver-list")
+        res = self.client.get(url + "?search_term=test")
+
+        drivers = get_user_model().objects.filter(username__icontains="test")
+        self.assertEqual(list(res.context["driver_list"]), list(drivers))
+
     def test_search_form_in_context(self):
         res = self.client.get(reverse("taxi:car-list"))
         self.assertIn("search_form", res.context)
@@ -79,24 +93,32 @@ class PrivateListViewsTest(TestCase):
 class ToggleAssignToCarTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
-            username="d1", password="testpass", license_number="ABC12345"
+            username="d1",
+            password="testpass",
+            license_number="ABC12345",
         )
-        self.manufacturer = Manufacturer.objects.create(name="VW",
-                                                        country="DE")
-        self.car = Car.objects.create(model="Passat",
-                                      manufacturer=self.manufacturer)
+        self.manufacturer = Manufacturer.objects.create(
+            name="VW",
+            country="DE",
+        )
+        self.car = Car.objects.create(
+            model="Passat",
+            manufacturer=self.manufacturer,
+        )
         self.client = Client()
         self.client.force_login(self.user)
 
-    def test_unassign_car(self):
-        url = reverse("taxi:car-detail", args=[self.car.id])
-
-        self.client.get(url)
-        self.assertNotIn(self.car, self.user.cars.all())
-
     def test_assign_car(self):
-        self.user.cars.add(self.car)
-        url = reverse("taxi:car-detail", args=[self.car.id])
+        url = reverse("taxi:toggle-car-assign", args=[self.car.id])
 
         self.client.get(url)
+
         self.assertIn(self.car, self.user.cars.all())
+
+    def test_unassign_car(self):
+        self.user.cars.add(self.car)
+        url = reverse("taxi:toggle-car-assign", args=[self.car.id])
+
+        self.client.get(url)
+
+        self.assertNotIn(self.car, self.user.cars.all())
